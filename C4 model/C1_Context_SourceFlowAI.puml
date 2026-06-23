@@ -1,0 +1,31 @@
+@startuml C1_Context_SourceFlowAI
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+title SourceFlow.AI - System Context Diagram (C1)
+
+Person(pyme_manager, "PYME Manager", "Owner/admin of the PYME. Creates the account, configures chatbots and loads the data sources.")
+Person(business_worker, "Business Worker", "PYME staff who operates the agent, reviews conversations and reports errors.")
+Person_Ext(end_customer, "End Customer", "Customer of the PYME who chats with the bot to resolve questions.")
+Person(platform_admin, "Platform Admin (Kernel)", "SourceFlow.AI team that administers all business accounts and monitors KPIs: usage percentage, tokens left, number of chats.")
+
+System(system, "SourceFlow.AI", "Multi-tenant SaaS that lets businesses create expert AI assistants over their own data using RAG.")
+
+System_Ext(mistral, "Mistral AI API", "Generates embeddings and source-grounded LLM responses for RAG.")
+System_Ext(vectorstore, "Vector Store", "Stores and retrieves embeddings per tenant. E.g. Pinecone, Qdrant or pgvector.")
+System_Ext(stripe, "Stripe", "Processes payments and manages subscriptions.")
+System_Ext(sendgrid, "SendGrid", "Sends transactional email: verification, alerts, notifications.")
+System_Ext(auth, "Auth / 2FA Provider", "Identity verification and second-factor authentication.")
+
+Rel(pyme_manager, system, "Creates account, manages chatbots, loads data sources")
+Rel(business_worker, system, "Operates the agent, reviews chats, reports errors")
+Rel(end_customer, system, "Sends questions, receives chatbot answers")
+Rel(platform_admin, system, "Administers accounts, monitors KPIs via admin panel")
+
+Rel(system, mistral, "Requests embeddings and answer generation", "HTTPS/REST")
+Rel(system, vectorstore, "Indexes and queries vectors per tenant", "HTTPS")
+Rel(system, stripe, "Charges subscriptions", "HTTPS/Webhooks")
+Rel(system, sendgrid, "Sends transactional emails", "API")
+Rel(system, auth, "Verifies identity and 2FA", "HTTPS")
+
+SHOW_LEGEND()
+@enduml

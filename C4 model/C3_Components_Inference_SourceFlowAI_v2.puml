@@ -1,0 +1,31 @@
+@startuml "Components-Layers"
+!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+title SourceFlow.AI - Component Diagram (C3)  [v2]\nZoom: Bounded Context "Inference" -> DDD layers (pgvector)
+
+Container(api, "API Application", "FastAPI - Python", "Receives customer queries and forwards them to the inference service")
+ContainerDb(db, "Relational Database", "PostgreSQL", "Chatbot configuration and metadata")
+ContainerDb(vdb, "Vector Database", "pgvector (PostgreSQL extension)", "Embeddings isolated per tenant")
+System_Ext(mistral, "Mistral AI API", "Generates source-grounded answers")
+
+' Hierarchy: API Application -> Bounded Contexts -> (within a BC) DDD layers.
+' This diagram zooms INTO the "Inference" bounded context to show its layers.
+Container_Boundary(inference, "Bounded Context: Inference (RAG)  ->  DDD layers") {
+    Component(interfaces, "Interfaces Layer", "FastAPI routers", "Exposes the query endpoint, validates input and serializes responses")
+    Component(application, "Application Layer", "Use cases / services", "Orchestrates the RAG flow: retrieve context, then generate the answer")
+    Component(domain, "Domain Layer", "Domain model", "Query, RetrievedContext, Answer and precision/threshold rules")
+    Component(infrastructure, "Infrastructure Layer", "Adapters / repositories", "Adapters to the vector store, the LLM API and the relational DB")
+    Component(connector, "Security Connector", "JWT / tenant guard", "Validates JWT and enforces per-tenant data isolation")
+}
+
+Rel(api, interfaces, "Forwards customer query", "internal REST")
+Rel(interfaces, application, "Invokes use case")
+Rel(application, domain, "Uses domain model")
+Rel(application, infrastructure, "Calls ports / adapters")
+Rel(infrastructure, vdb, "Queries similar vectors", "SQL")
+Rel(infrastructure, mistral, "Requests answer generation", "HTTPS")
+Rel(infrastructure, db, "Reads chatbot config", "SQL")
+Rel(infrastructure, connector, "Delegates auth and tenant checks")
+@enduml

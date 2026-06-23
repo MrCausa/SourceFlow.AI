@@ -1,0 +1,40 @@
+@startuml "BusinessUseCases"
+' Business Use Case model (UML business modeling / RUP notation)
+' Business actors and business use cases use the <<business>> stereotype.
+' In hand-drawn UML these carry a diagonal slash; here we mark them with <<business>>.
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+
+title SourceFlow.AI Business - Business Use Case Model (v2: notación corregida)
+
+actor "Dueño de PyME" as owner <<business actor>>
+actor "Cliente Final" as customer <<business actor>>
+actor "Mistral AI" as mistral <<support / system actor>>
+
+rectangle "SourceFlow.AI  (Business)" {
+  usecase "UCB-01\nConvertir documentación\nen respuestas dinámicas" as UCB1 <<business use case>>
+  usecase "UCB-02\nGestionar precisión\nde respuestas (RAG)" as UCB2 <<business use case>>
+  usecase "UCB-03\nAutomatizar\natención al cliente" as UCB3 <<business use case>>
+  usecase "UCB-04\nEscalar ventas\n(respuestas inmediatas)" as UCB4 <<business use case>>
+}
+
+owner --> UCB1
+owner --> UCB3
+customer --> UCB3
+customer --> UCB4
+owner ..> UCB4 : <<benefit>>
+
+UCB1 ..> mistral : <<support>>
+UCB2 ..> mistral : <<support>>
+UCB1 ..> UCB2 : <<include>>\n(RAG anti-alucinaciones)
+
+note bottom
+  RB-RAG-01 (Evitar alucinaciones): UCB-01 debe usar
+  obligatoriamente arquitectura RAG; cada respuesta queda
+  anclada a la documentación base.
+  Notación: actores y casos de uso de negocio llevan el
+  estereotipo <<business>> (slash diagonal en UML dibujado a mano).
+end note
+@enduml

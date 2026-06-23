@@ -1,0 +1,62 @@
+@startuml "Containers"
+!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+title SourceFlow.AI - Container Diagram (C2)  [v2: Web App vs SPA + pgvector]
+
+Person(pyme_manager, "PYME Manager", "Owner/admin of the PYME")
+Person(business_worker, "Business Worker", "Operates the agent and reviews conversations")
+Person_Ext(end_customer, "End Customer", "Customer of the PYME who chats with the bot")
+Person(platform_admin, "Platform Admin (Kernel)", "SourceFlow.AI team that monitors all accounts")
+
+System_Ext(mistral, "Mistral AI API", "Embeddings and source-grounded LLM responses")
+System_Ext(stripe, "Stripe", "Payments and subscriptions")
+System_Ext(sendgrid, "SendGrid", "Transactional email")
+System_Ext(auth, "Auth / 2FA Provider", "Identity verification and second factor")
+
+System_Boundary(system, "SourceFlow.AI") {
+    Container(landing, "Web Application (Landing)", "Next.js (SSR/SSG)", "Server-rendered, multipage and SEO-indexable web app: presents the product and lets visitors sign up")
+    Container(spa, "Single-Page Application (SPA)", "React (client-rendered)", "Client-rendered single-page dashboard to manage chatbots, documents, subscription and KPIs; consumes the API via JSON")
+    Container(mobile, "Mobile Application", "Flutter", "Lets managers and workers operate agents and receive alerts on the go")
+    Container(widget, "Chat Widget", "JavaScript (embeddable)", "Embeddable chat the PYME places on its own site for its customers")
+    Container(api, "API Application", "FastAPI - Python", "REST API: authentication, chatbots, subscriptions and orchestration")
+    Container(ingestion, "Ingestion Service", "Python worker (Celery)", "Parses, chunks and vectorizes uploaded documents asynchronously")
+    Container(inference, "Inference Service", "Python (LangChain)", "Retrieves context and generates source-grounded RAG answers")
+    ContainerDb(db, "Relational Database", "PostgreSQL", "Tenants, users, chatbots, document metadata and subscriptions")
+    ContainerDb(vdb, "Vector Database", "pgvector (PostgreSQL extension)", "Stores embeddings isolated per tenant")
+}
+
+note right of landing
+  Web App (Landing) = server-rendered (SSR/SSG), multipage, SEO.
+  SPA = client-rendered single page, talks to the API via JSON.
+  They are two DIFFERENT container types.
+end note
+
+Rel(pyme_manager, landing, "Visits sourceflow.ai and signs up", "HTTPS")
+Rel(pyme_manager, spa, "Manages chatbots and data", "HTTPS")
+Rel(business_worker, spa, "Operates agents, reviews chats", "HTTPS")
+Rel(platform_admin, spa, "Administers accounts, views KPIs", "HTTPS")
+Rel(pyme_manager, mobile, "Manages on the go", "HTTPS")
+Rel(business_worker, mobile, "Receives alerts and replies", "HTTPS")
+Rel(end_customer, widget, "Asks questions", "HTTPS")
+
+Rel(landing, api, "Submits sign-up", "JSON/HTTPS")
+Rel(spa, api, "Makes API calls to", "JSON/HTTPS")
+Rel(mobile, api, "Makes API calls to", "JSON/HTTPS")
+Rel(widget, api, "Sends customer queries to", "JSON/HTTPS")
+
+Rel(api, db, "Reads from and writes to", "SQL")
+Rel(api, ingestion, "Enqueues document processing", "async queue")
+Rel(api, inference, "Forwards queries to", "internal REST")
+Rel(ingestion, mistral, "Requests embeddings", "HTTPS")
+Rel(ingestion, vdb, "Writes embeddings to", "SQL")
+Rel(ingestion, db, "Updates document status", "SQL")
+Rel(inference, vdb, "Queries similar vectors", "SQL")
+Rel(inference, mistral, "Requests answer generation", "HTTPS")
+
+Rel(api, stripe, "Processes payments", "HTTPS")
+Rel(api, sendgrid, "Sends emails", "HTTPS")
+Rel(api, auth, "Verifies identity / 2FA", "HTTPS")
+
+@enduml

@@ -1,0 +1,30 @@
+@startuml "Billing & Monitoring Use Cases"
+left to right direction
+skinparam packageStyle rectangle
+
+
+actor "PYME Manager (Owner)" as Owner
+actor "Platform Admin" as Admin
+entity "Stripe API" as Stripe <<System>>
+
+
+rectangle "Billing & Monitoring Context" {
+  (UC12: Select Subscription Plan) as UC12
+  (UC13: View Usage Metrics / Tokens) as UC13
+  (UC14: Manage System-wide KPIs) as UC14
+  (UC15: Process Payment) as UC15
+  (UC02: Login) as UC2 #lightgray
+}
+
+
+Owner --> UC12
+Owner --> UC13
+Admin --> UC14
+
+
+UC12 ..> UC15 : <<include>>
+UC12 ..> UC2 : <<include>>
+UC13 ..> UC2 : <<include>>
+UC14 ..> UC2 : <<include>>
+UC15 -- Stripe
+@enduml

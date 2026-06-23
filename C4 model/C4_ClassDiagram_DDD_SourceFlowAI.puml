@@ -1,0 +1,174 @@
+@startuml
+title SourceFlow.AI - Class Diagram (DDD by Bounded Context)
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+
+package "IAM" {
+    package TenantAggregate {
+        class Tenant <<AggregateRoot>> {
+            - String businessName
+            --
+            + void activate()
+            + void suspend()
+        }
+        class TenantId <<ValueObject>> {
+            - UUID value
+        }
+        class User <<Entity>> {
+            - String email
+            - String passwordHash
+            --
+            + void changePassword()
+        }
+        class UserId <<ValueObject>> {
+            - UUID value
+        }
+        class Email <<ValueObject>> {
+            - String address
+        }
+        enum TenantStatus {
+            ACTIVE
+            SUSPENDED
+        }
+    }
+}
+
+package "Chatbots" {
+    package ChatbotAggregate {
+        class Chatbot <<AggregateRoot>> {
+            - String name
+            - Tone tone
+            --
+            + void rename()
+            + void changeTone()
+        }
+        class ChatbotId <<ValueObject>> {
+            - UUID value
+        }
+        enum ChatbotStatus {
+            NO_DOCUMENTS
+            READY
+        }
+        enum Tone {
+            FORMAL
+            FRIENDLY
+            SALES
+        }
+    }
+}
+
+package "KnowledgeIngestion" {
+    package DocumentAggregate {
+        class Document <<AggregateRoot>> {
+            - String fileName
+            - int sizeBytes
+            --
+            + void markProcessed()
+            + void markError()
+        }
+        class DocumentId <<ValueObject>> {
+            - UUID value
+        }
+        class Chunk <<Entity>> {
+            - String text
+            - int position
+        }
+        class Embedding <<ValueObject>> {
+            - float[] vector
+        }
+        enum DocumentStatus {
+            PROCESSING
+            READY
+            ERROR
+        }
+    }
+}
+
+package "Inference" {
+    package ConversationAggregate {
+        class Conversation <<AggregateRoot>> {
+            - DateTime startedAt
+            --
+            + void addMessage()
+        }
+        class ConversationId <<ValueObject>> {
+            - UUID value
+        }
+        class Message <<Entity>> {
+            - String content
+            - Sender sender
+            - DateTime timestamp
+        }
+        class Answer <<ValueObject>> {
+            - String text
+            - boolean grounded
+        }
+        enum Sender {
+            CUSTOMER
+            ASSISTANT
+        }
+    }
+}
+
+package "SubscriptionBilling" {
+    package SubscriptionAggregate {
+        class Subscription <<AggregateRoot>> {
+            - DateTime renewalDate
+            --
+            + void activate()
+            + void cancel()
+        }
+        class SubscriptionId <<ValueObject>> {
+            - UUID value
+        }
+        class Plan <<Entity>> {
+            - String name
+            - int maxBots
+            - int maxTokens
+        }
+        class Money <<ValueObject>> {
+            - BigDecimal amount
+            - String currency
+        }
+        enum SubscriptionStatus {
+            ACTIVE
+            PAST_DUE
+            CANCELLED
+        }
+    }
+}
+
+' IAM relations
+Tenant "1" - "1" TenantId
+Tenant "1" --> "1" TenantStatus
+Tenant "1" *-- "1..*" User
+User "1" - "1" UserId
+User "1" - "1" Email
+
+' Chatbots relations
+Chatbot "1" - "1" ChatbotId
+Chatbot "1" --> "1" ChatbotStatus
+Chatbot "1" --> "1" Tone
+TenantId "1" - "*" Chatbot
+
+' Ingestion relations
+Document "1" - "1" DocumentId
+Document "1" --> "1" DocumentStatus
+Document "1" *-- "1..*" Chunk
+Chunk "1" - "1" Embedding
+ChatbotId "1" - "*" Document
+
+' Inference relations
+Conversation "1" - "1" ConversationId
+Conversation "1" *-- "1..*" Message
+Message "1" --> "1" Sender
+Message "1" - "0..1" Answer
+ChatbotId "1" - "*" Conversation
+
+' Billing relations
+Subscription "1" - "1" SubscriptionId
+Subscription "1" --> "1" SubscriptionStatus
+Subscription "1" - "1" Plan
+Plan "1" - "1" Money
+TenantId "1" - "1" Subscription
+@enduml

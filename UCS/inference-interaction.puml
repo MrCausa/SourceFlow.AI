@@ -1,0 +1,29 @@
+@startuml "Inference Use Cases"
+left to right direction
+skinparam packageStyle rectangle
+
+
+actor "End Customer" as Customer
+actor "Business Worker (Employee)" as Worker
+entity "Mistral AI / OpenAI API" as AI <<System>>
+
+
+rectangle "Inference & Interaction Context" {
+  (UC09: Query AI Assistant) as UC9
+  (UC10: Review Chat History) as UC10
+  (UC11: Report AI Hallucination) as UC11
+  (UC02: Login) as UC2 #lightgray
+}
+
+
+Customer --> UC9
+UC9 -- AI : "Processes RAG"
+
+
+Worker --> UC10
+Worker --> UC11
+
+
+UC10 ..> UC2 : <<include>>
+UC11 ..> UC2 : <<include>>
+@enduml

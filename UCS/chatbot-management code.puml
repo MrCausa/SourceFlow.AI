@@ -1,0 +1,33 @@
+@startuml "Chatbot Management Use Cases"
+left to right direction
+skinparam packageStyle rectangle
+
+
+actor "PYME Manager (Owner)" as Owner
+actor "Business Worker (Employee)" as Worker
+
+
+rectangle "Chatbot & Content Management" {
+  (UC05: Create New Chatbot) as UC5
+  (UC06: Configure Bot Identity/Tone) as UC6
+  (UC07: Upload Training Documents) as UC7
+  (UC08: Delete/Archive Chatbot) as UC8
+  (UC02: Login) as UC2 #lightgray
+}
+
+
+Owner --> UC5
+Owner --> UC6
+Owner --> UC7
+Owner --> UC8
+
+
+Worker --> UC6
+Worker --> UC7
+
+
+UC5 ..> UC2 : <<include>>
+UC6 ..> UC2 : <<include>>
+UC7 ..> UC2 : <<include>>
+UC8 ..> UC2 : <<include>>
+@enduml

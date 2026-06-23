@@ -1,0 +1,66 @@
+@startuml "Components-Bounded Contexts"
+!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+title SourceFlow.AI - Component Diagram: API Application by Bounded Context\n[v2: first level = Bounded Contexts (layers live INSIDE each BC) + pgvector]
+
+Container(spa, "Single-Page Application (SPA)", "React", "Dashboard for managing chatbots, documents, subscription and KPIs")
+Container(mobile, "Mobile Application", "Flutter", "Manage agents and receive alerts on the go")
+Container(widget, "Chat Widget", "JavaScript", "Embeddable chat used by the PYME's end customers")
+ContainerDb(db, "Relational Database", "PostgreSQL", "Tenants, users, chatbots, metadata and subscriptions")
+ContainerDb(vdb, "Vector Database", "pgvector (PostgreSQL extension)", "Embeddings isolated per tenant")
+
+System_Ext(mistral, "Mistral AI API", "Embeddings and answer generation")
+System_Ext(stripe, "Stripe", "Payments and subscriptions")
+System_Ext(sendgrid, "SendGrid", "Transactional email")
+System_Ext(auth, "Auth / 2FA Provider", "Identity and second factor")
+
+' Decomposition order: API Application -> Bounded Contexts (this level)
+' -> within each BC, the DDD layers (Interfaces/Application/Domain/Infrastructure),
+' detailed in the C3 zoom diagram (e.g. C3 Inference).
+Container_Boundary(api, "API Application") {
+    Component(iam, "IAM", "Bounded Context", "Accounts, authentication, tenants and JWT")
+    Component(chatbots, "Chatbots", "Bounded Context", "Create, configure and manage chatbots and plan limits")
+    Component(ingestion, "Knowledge Ingestion", "Bounded Context", "Document upload, chunking and vectorization (RAG)")
+    Component(inference, "Inference", "Bounded Context", "Retrieval and source-grounded answer generation (RAG)")
+    Component(billing, "Subscription & Billing", "Bounded Context", "Plans, payments and usage limits")
+    Component(shared, "Shared Kernel", "Cross-cutting", "Common domain types, tenant context and integration events")
+}
+
+note bottom of api
+  Each Bounded Context internally follows the DDD layers
+  (Interfaces -> Application -> Domain -> Infrastructure).
+  See the C3 zoom diagram for the Inference BC layers.
+end note
+
+Rel(spa, iam, "Authenticates, manages account")
+Rel(spa, chatbots, "Manages chatbots and documents")
+Rel(spa, billing, "Manages subscription")
+Rel(mobile, chatbots, "Operates chatbots")
+Rel(widget, inference, "Sends customer queries")
+
+Rel(chatbots, iam, "Validates tenant and permissions")
+Rel(billing, iam, "Validates account")
+Rel(ingestion, chatbots, "Resolves target chatbot")
+Rel(inference, chatbots, "Reads chatbot config")
+Rel(iam, shared, "Uses")
+Rel(chatbots, shared, "Uses")
+Rel(ingestion, shared, "Uses")
+Rel(inference, shared, "Uses")
+Rel(billing, shared, "Uses")
+
+Rel(iam, db, "Reads from and writes to", "SQL")
+Rel(chatbots, db, "Reads from and writes to", "SQL")
+Rel(billing, db, "Reads from and writes to", "SQL")
+Rel(ingestion, db, "Updates document status", "SQL")
+Rel(ingestion, vdb, "Writes embeddings", "SQL")
+Rel(inference, vdb, "Queries vectors", "SQL")
+Rel(inference, db, "Reads config", "SQL")
+
+Rel(ingestion, mistral, "Requests embeddings", "HTTPS")
+Rel(inference, mistral, "Requests generation", "HTTPS")
+Rel(billing, stripe, "Processes payments", "HTTPS")
+Rel(iam, auth, "Verifies identity / 2FA", "HTTPS")
+Rel(iam, sendgrid, "Sends verification emails", "HTTPS")
+@enduml
