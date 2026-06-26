@@ -1,0 +1,243 @@
+Project SourceFlow_AI {
+  database_type: 'PostgreSQL'
+  Note: 'Modelo físico de Base de Datos (Relacional & Vectorial con pgvector) para SourceFlow.ai - Revisión de Producción'
+}
+
+// ==========================================
+// ENUMS (Tipos de Datos Estrictos)
+// ==========================================
+Enum tenant_status {
+  active
+  suspended
+}
+Enum document_status {
+  processing
+  ready
+  error
+}
+Enum chatbot_status {
+  active
+  inactive
+  draft
+}
+Enum chatbot_tone {
+  formal
+  amigable
+  vendedor
+}
+Enum subscription_status {
+  active
+  past_due
+  cancelled
+}
+Enum user_role {
+  admin
+  worker
+}
+Enum message_sender {
+  user
+  bot
+}
+
+// ==========================================
+// TABLES
+// ==========================================
+Table tenant {
+  id UUID [pk]
+  business_name VARCHAR(255) [not null]
+  status tenant_status [not null, default: 'active']
+  created_at TIMESTAMP [not null, default: `now()`]
+  updated_at TIMESTAMP
+
+  Note: 'Entidad central del modelo multi-inquilino (IAM)'
+}
+Table users {
+  id UUID [pk]
+  tenant_id UUID [not null]
+  email VARCHAR(255) [unique, not null]
+  password_hash VARCHAR(255) [not null]
+  role user_role [not null, default: 'worker']
+  created_at TIMESTAMP [not null, default: `now()`]
+  updated_at TIMESTAMP
+
+  Indexes {
+    tenant_id [name: 'idx_users_tenant']
+  }
+  Note: 'email único globalmente para el login. Aislado por tenant_id.'
+}
+Table chatbot {
+  id UUID [pk]
+  tenant_id UUID [not null]
+  name VARCHAR(100) [not null]
+  tone chatbot_tone [not null]
+  status chatbot_status [not null, default: 'draft']
+  created_at TIMESTAMP [not null, default: `now()`]
+  updated_at TIMESTAMP
+
+  Indexes {
+    (tenant_id, name) [unique, name: 'idx_unique_chatbot_name_per_tenant']
+  }
+}
+Table document {
+  id UUID [pk]
+  tenant_id UUID [not null]
+  chatbot_id UUID [not null]
+  file_name VARCHAR(255) [not null]
+  size_bytes BIGINT [not null]
+  status document_status [not null, default: 'processing']
+  created_at TIMESTAMP [not null, default: `now()`]
+  updated_at TIMESTAMP
+
+  Indexes {
+    tenant_id [name: 'idx_document_tenant']
+    chatbot_id [name: 'idx_document_chatbot']
+  }
+}
+Table chunk {
+  id UUID [pk]
+  tenant_id UUID [not null]
+  document_id UUID [not null]
+  text_content TEXT [not null]
+  position INT [not null]
+  embedding_vector VECTOR(1024) [not null]
+  created_at TIMESTAMP [not null, default: `now()`]
+
+  Indexes {
+    document_id [name: 'idx_chunk_document']
+    tenant_id [name: 'idx_chunk_tenant']
+    embedding_vector [name: 'idx_vector_hnsw']
+  }
+  Note: 'Vector 1024 (mistral-embed). OJO El índice idx_vector_hnsw debe crearse en SQL como HNSW: CREATE INDEX idx_vector_hnsw ON chunk USING hnsw (embedding_vector vector_cosine_ops);'
+}
+Table conversation {
+  id UUID [pk]
+  tenant_id UUID [not null]
+  chatbot_id UUID [not null]
+  started_at TIMESTAMP [not null]
+  created_at TIMESTAMP [not null, default: `now()`]
+  updated_at TIMESTAMP
+
+  Indexes {
+    tenant_id [name: 'idx_conversation_tenant']
+    chatbot_id [name: 'idx_conversation_chatbot']
+  }
+}
+Table message {
+  id UUID [pk]
+  tenant_id UUID [not null]
+  conversation_id UUID [not null]
+  sender message_sender [not null]
+  content TEXT [not null]
+  timestamp TIMESTAMP [not null, default: `now()`]
+  answer_text TEXT
+  answer_grounded BOOLEAN
+
+  Indexes {
+    conversation_id [name: 'idx_message_conversation']
+    tenant_id [name: 'idx_message_tenant']
+  }
+  Note: 'answer_text y answer_grounded solo aplican cuando sender = bot (nullables).'
+}
+Table message_source {
+  id UUID [pk]
+  message_id UUID [not null]
+  chunk_id UUID [not null]
+
+  Indexes {
+    (message_id, chunk_id) [unique, name: 'idx_unique_message_chunk']
+    chunk_id [name: 'idx_message_source_chunk']
+  }
+  Note: 'Tabla pivote para trazar exactamente qué chunks generaron la respuesta (Citas RAG)'
+}
+Table token_consumption {
+  id UUID [pk]
+  tenant_id UUID [not null]
+  period_start TIMESTAMP [not null]
+  period_end TIMESTAMP [not null]
+  tokens_used INT [not null, default: 0]
+  created_at TIMESTAMP [not null, default: `now()`]
+
+  Indexes {
+    (tenant_id, period_start) [unique, name: 'idx_unique_tenant_period']
+  }
+}
+Table plan {
+  id UUID [pk]
+  name VARCHAR(100) [not null]
+  max_bots INT [not null]
+  max_tokens INT [not null]
+  price_amount DECIMAL(10,2) [not null]
+  price_currency VARCHAR(3) [not null]
+  created_at TIMESTAMP [not null, default: `now()`]
+  updated_at TIMESTAMP
+
+  Note: 'Sembrar: free (max_bots=1), pro (10), business (100)'
+}
+Table subscription {
+  id UUID [pk]
+  tenant_id UUID [unique, not null]
+  plan_id UUID [not null]
+  renewal_date TIMESTAMP [not null]
+  status subscription_status [not null, default: 'active']
+  created_at TIMESTAMP [not null, default: `now()`]
+  updated_at TIMESTAMP
+
+  Indexes {
+    plan_id [name: 'idx_subscription_plan']
+  }
+}
+
+// ==========================================
+// RELACIONES
+// ==========================================
+// IAM
+Ref: users.tenant_id > tenant.id [delete: cascade]
+
+// Chatbots
+Ref: chatbot.tenant_id > tenant.id [delete: cascade]
+
+// Ingestion
+Ref: document.tenant_id > tenant.id [delete: cascade]
+Ref: document.chatbot_id > chatbot.id [delete: cascade]
+Ref: chunk.tenant_id > tenant.id [delete: cascade]
+Ref: chunk.document_id > document.id [delete: cascade]
+
+// Inference
+Ref: conversation.tenant_id > tenant.id [delete: cascade]
+Ref: conversation.chatbot_id > chatbot.id [delete: cascade]
+Ref: message.tenant_id > tenant.id [delete: cascade]
+Ref: message.conversation_id > conversation.id [delete: cascade]
+
+// RAG Sources (Citas)
+Ref: message_source.message_id > message.id [delete: cascade]
+Ref: message_source.chunk_id > chunk.id [delete: cascade]
+
+// Billing & Consumption
+Ref: token_consumption.tenant_id > tenant.id [delete: cascade]
+Ref: subscription.tenant_id - tenant.id [delete: cascade]
+Ref: subscription.plan_id > plan.id [delete: restrict]
+
+// ==========================================
+// BOUNDED CONTEXTS 
+// ==========================================
+TableGroup IAM {
+  tenant
+  users
+}
+TableGroup Chatbots {
+  chatbot
+}
+TableGroup Knowledge_Ingestion {
+  document
+  chunk
+}
+TableGroup Inference {
+  conversation
+  message
+  message_source
+}
+TableGroup Billing_And_Monitoring {
+  plan
+  subscription
+  token_consumption
+}
