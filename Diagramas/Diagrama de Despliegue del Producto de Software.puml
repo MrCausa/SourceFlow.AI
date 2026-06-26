@@ -1,0 +1,77 @@
+@startuml
+title Diagrama de Despliegue de SourceFlow.ai (Entorno Producción AWS)
+
+left to right direction
+
+skinparam node {
+    BackgroundColor LightCyan
+    BorderColor DarkBlue
+}
+skinparam component {
+    BackgroundColor White
+    BorderColor Black
+}
+skinparam database {
+    BackgroundColor LightGreen
+    BorderColor DarkGreen
+}
+skinparam queue {
+    BackgroundColor LightYellow
+    BorderColor GoldenRod
+}
+
+actor Usuario as "Dueño MYPE / Cliente"
+
+node "Dispositivo Cliente" {
+    component "React Frontend SPA\n(Navegador Web)" as SPA
+}
+
+node "AWS Cloud Platform" {
+    component "Amazon Route 53 (DNS)" as dns
+    component "Amazon CloudFront (CDN)" as cdn
+    
+    node "Amazon VPC" {
+        node "Public Subnet" {
+            component "Application Load Balancer (ALB)" as alb
+        }
+        
+        node "Private Subnet (Compute Layer)" {
+            node "Amazon ECS Cluster" {
+                component "FastAPI Backend\n(Uvicorn Server)" as fast_api
+                component "Celery Worker\n(Async Engine)" as worker
+            }
+        }
+        
+        node "Data & Storage Subnet" {
+            database "Amazon RDS\n(PostgreSQL + pgvector)" as rds
+            queue "Amazon ElastiCache\n(Redis Broker & Cache)" as redis
+        }
+    }
+    
+    database "Amazon S3 Bucket\n(Documentos PDF)" as s3
+}
+
+node "External APIs" {
+    component "Mistral AI Cloud\n(LLM & Embeddings)" as external_llm
+    component "Stripe Gateway\n(Payments)" as external_stripe
+}
+
+' Flujos de conexión
+Usuario --> SPA
+SPA --> dns : 1. Resolve API URLs
+SPA --> cdn : 2. Descarga assets estáticos
+
+SPA --> alb : 3. Peticiones de API (HTTPS)
+alb --> fast_api : 4. Distribuye tráfico
+
+fast_api --> s3 : Almacena copias físicas de PDFs
+fast_api --> redis : Publica tareas / Cache semántico
+worker --> redis : Consume cola de tareas pendientes
+
+worker --> external_llm : Envía texto a vectorizar
+worker --> rds : Almacena vectores calculados y chunks
+
+fast_api --> rds : Consultas relacionales y búsqueda semántica
+fast_api --> external_llm : Envía prompts enriquecidos (Chat)
+fast_api --> external_stripe : Webhooks y gestión de pagos
+@enduml

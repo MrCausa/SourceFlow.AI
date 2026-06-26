@@ -1,0 +1,30 @@
+package "Identity & Access Management Bounded Context" {
+    class Tenant {
+        + UUID id
+        + String companyName
+        + String email
+        + String passwordHash
+        + String stripeCustomerId
+        + SubscriptionPlan planType
+        + DateTime createdAt
+        + Boolean isActive()
+    }
+
+    enum SubscriptionPlan {
+        FREE
+        PRO
+        ENTERPRISE
+    }
+
+    class Session {
+        + UUID id
+        + UUID tenantId
+        + String token
+        + DateTime expiresAt
+        + Boolean isValid()
+    }
+
+    Tenant "1" -- "0..*" Session : generates >
+    Tenant "1" -- "1" SubscriptionPlan : has >
+}
+@endum

@@ -1,0 +1,54 @@
+package "Chatbot & Knowledge Management Bounded Context" {
+    class Chatbot {
+        + UUID id
+        + UUID tenantId
+        + String name
+        + BotTone tone
+        + DateTime createdAt
+        + configureTone(BotTone tone)
+    }
+
+    enum BotTone {
+        FORMAL
+        AMIGABLE
+        VENDEDOR
+    }
+
+    class Document {
+        + UUID id
+        + UUID chatbotId
+        + String fileName
+        + String fileUrl
+        + Long fileSize
+        + DocumentStatus status
+        + DateTime uploadedAt
+    }
+
+    enum DocumentStatus {
+        PROCESANDO
+        LISTO
+        ERROR
+    }
+
+    class VectorChunk {
+        + UUID id
+        + UUID documentId
+        + String contentText
+        + List<Float> embeddingVector
+    }
+
+    class ConversationLog {
+        + UUID id
+        + UUID chatbotId
+        + String userQuestion
+        + String aiResponse
+        + Integer tokensUsed
+        + DateTime timestamp
+    }
+
+    Chatbot "1" -- "1" BotTone : operates in >
+    Chatbot "1" -- "0.." Document : contains >
+    Chatbot "1" -- "0.." ConversationLog : records >
+    Document "1" -- "1..*" VectorChunk : fragmented into >
+}
+@endum

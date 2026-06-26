@@ -1,0 +1,35 @@
+!include <C4/C4_Component>
+
+LAYOUT_WITH_LEGEND()
+
+title Diagrama de Componentes - API Application (Core Backend)
+
+Container(frontend, "Single-Page Application", "React / Next.js", "Proporciona la interfaz UI para las PyMEs y el chat widget.")
+
+ContainerDb(postgres, "Base de Datos Relacional y Vectorial", "PostgreSQL + pgvector", "Almacena inquilinos, documentos y vectores embeddings.")
+System_Ext(mistral, "Mistral AI API", "Servicio externo de LLM para generación de embeddings y respuestas RAG.")
+ContainerDb(cache, "Capa de Caché", "Redis", "Almacena respuestas a preguntas frecuentes para optimizar costos de tokens.")
+Container_Boundary(api_boundary, "Core Backend (FastAPI Application)") {
+    Component(auth_comp, "Security & Auth Controller", "FastAPI Dep", "Gestiona JWT, registro y aislamiento multi-tenant.")
+    Component(doc_comp, "Document Ingestion Manager", "Python Class", "Recibe PDFs, limpia texto y coordina el chunking.")
+    Component(vector_comp, "Embedding & Vector Store Client", "Python Class", "Conecta con Mistral AI para embeddings y almacena en pgvector.")
+    Component(rag_comp, "RAG Orchestrator Engine", "Python Engine", "Administra el flujo de recuperación de contexto, inyección de tono y envío al LLM.")
+    Component(cache_comp, "Semantic Cache Controller", "Python Module", "Comprueba similitud en consultas previas antes de invocar al LLM.")
+}
+
+Rel(frontend, auth_comp, "Usa / Autentica mediante", "HTTPS/JWT")
+Rel(frontend, doc_comp, "Sube documentos PDF a", "HTTPS/Multipart")
+Rel(frontend, rag_comp, "Envía consultas de chat a", "WSS / HTTPS")
+
+Rel(auth_comp, postgres, "Lee/Escribe credenciales en")
+Rel(doc_comp, vector_comp, "Envía texto plano fragmentado a")
+Rel(vector_comp, mistral, "Genera embeddings con", "HTTPS")
+Rel(vector_comp, postgres, "Inserta vectores chunks en")
+
+Rel(rag_comp, cache_comp, "Consulta disponibilidad de respuesta en")
+Rel(cache_comp, cache, "Busca claves por similitud semántica en")
+
+Rel(rag_comp, postgres, "Realiza búsqueda vectorial (Top-K) en")
+Rel(rag_comp, mistral, "Envía prompt enriquecido + contexto a", "HTTPS")
+
+@endum
